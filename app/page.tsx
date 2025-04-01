@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 import { Amatic_SC, Roboto, Pacifico } from "next/font/google";
 import { motion, AnimatePresence } from "framer-motion";
@@ -119,7 +119,7 @@ export default function Home() {
   const touchEndX = useRef(0);
   // Agregar estas variables y referencias
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const wheelThrottleTime = 500; // Aumentado para dar más tiempo entre eventos
+  const wheelThrottleTime = 500; // Tiempo más largo para garantizar que se reactive
   const wheelEnabledRef = useRef(true); // Usar una referencia en lugar de estado
 
   // Referencias para los elementos
@@ -197,50 +197,28 @@ export default function Home() {
     }
   };
 
-  // Reemplazar la función handleWheel
-  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    // Usar la referencia directamente en lugar de estado
+  // Modifica tu función handleWheel para asegurar que se reactive correctamente
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
     if (!wheelEnabledRef.current) return;
     
-    e.preventDefault(); // Evitar el scroll de la página
-    
-    // Desactivar temporalmente para evitar desplazamientos rápidos múltiples
     wheelEnabledRef.current = false;
     
-    // Determinar la dirección de la rueda
     if (e.deltaY > 0) {
-      // Scroll hacia abajo = siguiente elemento
       nextSlider();
     } else {
-      // Scroll hacia arriba = elemento anterior
       prevSlider();
     }
     
-    // Reactivar después del tiempo de espera
     if (wheelTimeoutRef.current) {
       clearTimeout(wheelTimeoutRef.current);
     }
+    
     wheelTimeoutRef.current = setTimeout(() => {
       wheelEnabledRef.current = true;
     }, wheelThrottleTime);
-  };
-
-  // Añadir el evento de rueda al carrusel en el useEffect
-  useEffect(() => {
-    const carousel = carouselRef.current;
-    if (carousel) {
-      // Función wrapper que siempre verifica la referencia actualizada
-      const wheelHandler = (e: WheelEvent) => handleWheel(e as unknown as React.WheelEvent<HTMLDivElement>);
-      
-      carousel.addEventListener('wheel', wheelHandler, { passive: false });
-      return () => {
-        carousel.removeEventListener('wheel', wheelHandler);
-        if (wheelTimeoutRef.current) {
-          clearTimeout(wheelTimeoutRef.current);
-        }
-      };
-    }
-  }, [handleWheel]);
+  }, [nextSlider, prevSlider, wheelThrottleTime]);
 
   // Sincronizar rotación con índice activo
   useEffect(() => {
@@ -529,6 +507,7 @@ export default function Home() {
           ref={carouselRef}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
+          onWheel={handleWheel} // Añade esta línea para conectar el evento de rueda
         >
           {/* Círculo rotativo - Solo visible en escritorio */}
           <motion.div 
